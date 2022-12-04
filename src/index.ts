@@ -321,7 +321,7 @@ function tokenizeWord(
   start: MS.Position,
   end: MS.Position
 ): TokenizerContext {
-  if (" \t\n\v\f\r<>()&|".includes(char)) {
+  if (" \t\n\v\f\r<>()&'\"|".includes(char)) {
     acc.push({ type: "WORD", body: acc2, start, end });
     return tokenizeDefault(char, line, column, acc);
   } else {
@@ -427,11 +427,15 @@ function printToken(input: string) {
         input.split("\n")[result.start.line - 1]
       }\n${repeat(" ", result.start.column)}${repeat(
         "^",
-        1 + result.end.column - result.start.column
+        (result.start.line === result.end.line
+          ? 1 + result.end.column
+          : input.split("\n")[result.start.line - 1].length) -
+          result.start.column
       )}`
     );
   }
 }
 
 printToken("ls -al |\n\tgrep \\\\.c &&& cat test.c");
-printToken("echo 'Hello world!\"");
+printToken("echo 'Hello world!\n\"");
+printToken(`export IFS=""`);
