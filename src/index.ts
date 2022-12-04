@@ -135,21 +135,28 @@ type TokenizerContext =
   | ["DEFAULT", MS.Token[]]
   | ["SPACE", MS.Token[], MS.Position, MS.Position]
   | ["WORD", MS.Token[], string, MS.Position, MS.Position]
-  | ["WORD_Q", MS.Token[], string, MS.Position]
-  | ["WORD_DQ", MS.Token[], string, MS.Position];
+  | ["WORD_Q", MS.Token[], string, MS.Position, MS.Position]
+  | ["WORD_DQ", MS.Token[], string, MS.Position, MS.Position];
 
 export interface TokenizeError {
   message: string;
-  line: number;
-  column: number;
+  start: MS.Position;
+  end: MS.Position;
 }
 
 function UnrecognizedToken(line: number, column: number): TokenizeError {
-  return { message: "Unrecognized token", line, column };
+  return {
+    message: "Unrecognized token",
+    start: { line, column },
+    end: { line, column },
+  };
 }
 
-function UnterminatedString(line: number, column: number): TokenizeError {
-  return { message: "Unterminated string", line, column };
+function UnterminatedString(
+  start: MS.Position,
+  end: MS.Position
+): TokenizeError {
+  return { message: "Unterminated string", start, end };
 }
 
 type ExcludeFirst<T extends any[]> = T extends [any, ...infer I] ? I : never;
@@ -328,15 +335,16 @@ function tokenizeWordQ(
   column: number,
   acc: MS.Token[],
   acc2: string,
-  start: MS.Position
+  start: MS.Position,
+  end: MS.Position
 ): TokenizerContext {
   if (char === "") {
-    return ["ERROR", UnterminatedString(line, column)];
+    return ["ERROR", UnterminatedString(start, end)];
   } else if (char === "'") {
     acc.push({ type: "WORD_Q", start, end: { line, column }, body: acc2 });
     return ["DEFAULT", acc];
   } else {
-    return ["WORD_Q", acc, acc2 + char, start];
+    return ["WORD_Q", acc, acc2 + char, start, { line, column }];
   }
 }
 
@@ -346,15 +354,16 @@ function tokenizeWordDQ(
   column: number,
   acc: MS.Token[],
   acc2: string,
-  start: MS.Position
+  start: MS.Position,
+  end: MS.Position
 ): TokenizerContext {
   if (char === "") {
-    return ["ERROR", UnterminatedString(line, column)];
+    return ["ERROR", UnterminatedString(start, end)];
   } else if (char === '"') {
     acc.push({ type: "WORD_DQ", start, end: { line, column }, body: acc2 });
     return ["DEFAULT", acc];
   } else {
-    return ["WORD_Q", acc, acc2 + char, start];
+    return ["WORD_DQ", acc, acc2 + char, start, { line, column }];
   }
 }
 
@@ -392,12 +401,37 @@ function tokenizeDefault(
     acc.push({ type: "EOF", start: { line, column }, end: { line, column } });
     return ["DEFAULT", acc];
   } else if (char === '"') {
-    return ["WORD_DQ", acc, "", { line, column }];
+    return ["WORD_DQ", acc, "", { line, column }, { line, column }];
   } else if (char === "'") {
-    return ["WORD_Q", acc, "", { line, column }];
+    return ["WORD_Q", acc, "", { line, column }, { line, column }];
   } else {
     return ["WORD", acc, char, { line, column }, { line, column }];
   }
 }
 
-console.log(tokenize("ls -al |\n\tgrep \\\\.c"));
+function repeat(input: string, times: number): string {
+  return Array.from(new Array(times))
+    .map(() => input)
+    .join("");
+}
+
+function printToken(input: string) {
+  const result = tokenize(input);
+  if (Array.isArray(result)) {
+    console.log(...result);
+  } else {
+    console.error(
+      `Failed to parse: ${result.message} at ${result.start.line}:${
+        result.start.column
+      } to ${result.end.line}:${result.end.column}\n${
+        input.split("\n")[result.start.line - 1]
+      }\n${repeat(" ", result.start.column)}${repeat(
+        "^",
+        1 + result.end.column - result.start.column
+      )}`
+    );
+  }
+}
+
+printToken("ls -al |\n\tgrep \\\\.c &&& cat test.c");
+printToken("echo 'Hello world!\"");
