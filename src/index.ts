@@ -18,6 +18,7 @@ export module MS {
     | RR
     | LPAREN
     | RPAREN
+    | SPACE
     | WORD
     | WORD_Q
     | WORD_DQ
@@ -50,6 +51,9 @@ export module MS {
   }
   export interface RPAREN extends TokenBase {
     type: "RPAREN";
+  }
+  export interface SPACE extends TokenBase {
+    type: "SPACE";
   }
   export interface WORD extends TokenBase {
     type: "WORD";
@@ -124,12 +128,12 @@ export module MS {
 type TokenizerContext =
   | ["INITIAL"]
   | ["ERROR", TokenizeError]
-  | ["SPACE", MS.Token[]]
   | ["PREV_L", MS.Token[], MS.Position]
   | ["PREV_R", MS.Token[], MS.Position]
   | ["PREV_AND", MS.Token[], MS.Position]
   | ["PREV_OR", MS.Token[], MS.Position]
   | ["DEFAULT", MS.Token[]]
+  | ["SPACE", MS.Token[], MS.Position, MS.Position]
   | ["WORD", MS.Token[], string, MS.Position, MS.Position]
   | ["WORD_Q", MS.Token[], string, MS.Position]
   | ["WORD_DQ", MS.Token[], string, MS.Position];
@@ -152,12 +156,12 @@ type ExcludeFirst<T extends any[]> = T extends [any, ...infer I] ? I : never;
 
 const tokenizerMap = {
   INITIAL: tokenizeInitial,
-  SPACE: tokenizeSpace,
   PREV_L: tokenizePrevL,
   PREV_R: tokenizePrevR,
   PREV_AND: tokenizePrevAnd,
   PREV_OR: tokenizePrevOr,
   DEFAULT: tokenizeDefault,
+  SPACE: tokenizeSpace,
   WORD: tokenizeWord,
   WORD_Q: tokenizeWordQ,
   WORD_DQ: tokenizeWordDQ,
@@ -180,6 +184,7 @@ function excludeFirst<T extends any[]>(
 export function tokenize(input: string): MS.Token[] | TokenizeError {
   const chars = input
     .split("\n")
+    .map((l, i, a) => (i === a.length - 1 ? l : `${l}\n`))
     .flatMap((l, line) =>
       l.split("").map((char, column) => ({ char, line: line + 1, column }))
     );
@@ -219,19 +224,6 @@ function tokenizeInitial(
   column: number
 ): TokenizerContext {
   return tokenizeDefault(char, line, column, []);
-}
-
-function tokenizeSpace(
-  char: string,
-  line: number,
-  column: number,
-  acc: MS.Token[]
-): TokenizerContext {
-  if (char !== "" && " \t\n\v\f\r".includes(char)) {
-    return ["SPACE", acc];
-  } else {
-    return tokenizeDefault(char, line, column, acc);
-  }
 }
 
 function tokenizePrevL(
@@ -297,6 +289,22 @@ function tokenizePrevOr(
   }
 }
 
+function tokenizeSpace(
+  char: string,
+  line: number,
+  column: number,
+  acc: MS.Token[],
+  start: MS.Position,
+  end: MS.Position
+): TokenizerContext {
+  if (char !== "" && " \t\n\v\f\r".includes(char)) {
+    return ["SPACE", acc, start, { line, column }];
+  } else {
+    acc.push({ type: "SPACE", start, end });
+    return tokenizeDefault(char, line, column, acc);
+  }
+}
+
 function tokenizeWord(
   char: string,
   line: number,
@@ -357,7 +365,7 @@ function tokenizeDefault(
   acc: MS.Token[]
 ): TokenizerContext {
   if (char !== "" && " \t\n\v\f\r".includes(char)) {
-    return ["SPACE", acc];
+    return ["SPACE", acc, { line, column }, { line, column }];
   } else if (char === "<") {
     return ["PREV_L", acc, { line, column }];
   } else if (char === ">") {
@@ -392,4 +400,4 @@ function tokenizeDefault(
   }
 }
 
-console.log(tokenize("ls -al | grep \\\\.c"));
+console.log(tokenize("ls -al |\n\tgrep \\\\.c"));
