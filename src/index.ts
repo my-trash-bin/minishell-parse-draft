@@ -25,36 +25,17 @@ export module MS {
     | EOF;
   export type TokenType = Token["type"];
   export interface TokenBase extends PositionRange {}
-  export interface AND extends TokenBase {
-    type: "AND";
-  }
-  export interface OR extends TokenBase {
-    type: "OR";
-  }
-  export interface PIPE extends TokenBase {
-    type: "PIPE";
-  }
-  export interface L extends TokenBase {
-    type: "L";
-  }
-  export interface LL extends TokenBase {
-    type: "LL";
-  }
-  export interface R extends TokenBase {
-    type: "R";
-  }
-  export interface RR extends TokenBase {
-    type: "RR";
-  }
-  export interface LPAREN extends TokenBase {
-    type: "LPAREN";
-  }
-  export interface RPAREN extends TokenBase {
-    type: "RPAREN";
-  }
-  export interface SPACE extends TokenBase {
-    type: "SPACE";
-  }
+  type SpecialToken<T extends string> = TokenBase & { type: T };
+  export type AND = SpecialToken<"AND">;
+  export type OR = SpecialToken<"OR">;
+  export type PIPE = SpecialToken<"PIPE">;
+  export type L = SpecialToken<"L">;
+  export type LL = SpecialToken<"LL">;
+  export type R = SpecialToken<"R">;
+  export type RR = SpecialToken<"RR">;
+  export type LPAREN = SpecialToken<"LPAREN">;
+  export type RPAREN = SpecialToken<"RPAREN">;
+  export type SPACE = SpecialToken<"SPACE">;
   export interface WORD extends TokenBase {
     type: "WORD";
     body: string;
@@ -67,9 +48,7 @@ export module MS {
     type: "WORD_DQ";
     body: string;
   }
-  export interface EOF extends TokenBase {
-    type: "EOF";
-  }
+  export type EOF = SpecialToken<"EOF">;
 
   export interface NodeBase extends PositionRange {}
   export type Node = Program;
